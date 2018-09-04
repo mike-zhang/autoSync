@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #-*- coding:utf-8 -*-
 
-import time,os,sys
+import time,datetime,os,sys
 import paramiko
 import posixpath, traceback
 from watchdog.observers import Observer
@@ -96,15 +96,15 @@ def doScp(srcPath,cnf):
             return bRet        
         srcFile = os.path.relpath(srcPath,cnf.currentDir)
         dstFile = posixpath.join(cnf.remoteDir,srcFile.replace(os.path.sep, posixpath.sep))
-        print dstFile        
-        print("doScp : {0},{1}".format(srcPath,dstFile))
+        #print dstFile        
+        print("{0},doScp : {1},{2}".format(datetime.datetime.now(),srcPath,dstFile))
         if not os.path.exists(srcPath) :
             print("doScp : file {0} not exist".format(srcPath))
             bRet = False            
         else :
             ssh = getSSHInstance(cnf)
             strcmd = "mkdir -p {0}".format(posixpath.split(dstFile)[0])
-            print strcmd
+            #print strcmd
             stdin,stdout,stderr=ssh.exec_command(strcmd)
             sftp = paramiko.SFTPClient.from_transport(ssh.get_transport())
             sftp = ssh.open_sftp()
