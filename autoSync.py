@@ -7,7 +7,7 @@ import posixpath, traceback
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-class ConfigData():        
+class ConfigData():
     def __init__(self,_fileName):
         self.fileName = _fileName
         self.docTree = None
@@ -17,9 +17,10 @@ class ConfigData():
         self.ssh_user = "root"
         self.ssh_passwd = ""
         self.currentDir = "."
-        self.remoteDir = "/tmp/t1"        
+        self.remoteDir = "/tmp/t1"
         
         self.arrFileExcept = []
+        self.arrDirExcept = []
         self.getConfigFromFile()
         
     def show(self):
@@ -30,28 +31,37 @@ class ConfigData():
         print self.currentDir
         print self.remoteDir
         print self.arrFileExcept
+        print self.arrDirExcept
  
     def getSectiontText(self,path):
         retText = ""
         if self.docTree :
             objTmp = self.docTree.find(path)
             if objTmp != None : 
-                retText = objTmp.text or ""                
+                retText = objTmp.text or ""
         return retText
 
     def getFileExcept(self):        
         if not self.docTree : 
             return None            
-        objTmp = self.docTree.findall("fileExcept/file")            
+        objTmp = self.docTree.findall("fileExcept/file")
         if objTmp :
-            self.arrFileExcept += [os.path.join(self.currentDir,item.text) for item in objTmp]            
+            arrDir = [os.path.join(self.currentDir,item.text) for item in objTmp] 
+            arrDir = [os.path.normpath(item) for item in arrDir]
+            self.arrFileExcept += arrDir
+            
+        objTmp = self.docTree.findall("dirExcept/dir")
+        if objTmp :
+            arrDir = [os.path.join(self.currentDir,item.text) for item in objTmp]
+            arrDir = [os.path.normpath(item) for item in arrDir]
+            self.arrDirExcept += arrDir
         return None
         
     def getSectiontInt(self,path):    
         strTmp = self.getSectiontText(path).strip()
         return (int(strTmp) if strTmp.isdigit() else 0)    
     
-    def getConfigFromFile(self):        
+    def getConfigFromFile(self):
         try:
             import xml.etree.cElementTree as ET
         except ImportError:
@@ -60,7 +70,7 @@ class ConfigData():
             print "file ", self.fileName, " not exists"
             return None        
         try:
-            self.docTree = ET.ElementTree(file=self.fileName)            
+            self.docTree = ET.ElementTree(file=self.fileName)
         except Exception,e:
             print "%s is NOT well-formed : %s "%(self.fileName,e)
             return None
@@ -68,10 +78,10 @@ class ConfigData():
         self.ssh_host = self.getSectiontText("host").strip()
         self.ssh_port = self.getSectiontInt("sshPort")
         self.ssh_user = self.getSectiontText("user").strip()
-        self.ssh_passwd = self.getSectiontText("password").strip()        
+        self.ssh_passwd = self.getSectiontText("password").strip()
         self.currentDir = self.getSectiontText("localDir").strip()
         self.currentDir = os.path.abspath(self.currentDir)    
-        self.remoteDir = self.getSectiontText("remoteDir").strip()        
+        self.remoteDir = self.getSectiontText("remoteDir").strip()
         self.getFileExcept()
         return None
 
@@ -90,10 +100,18 @@ def getSSHInstance(cnf):
 def doScp(srcPath,cnf):
     bRet = False    
     try:
+        srcPath = os.path.abspath(srcPath)
         print "srcPath : {0}".format(srcPath)
         if srcPath in cnf.arrFileExcept :
             print "{0} in arrFilesExcept".format(srcPath)
-            return bRet        
+            return bRet
+        baseDir = os.path.dirname(srcPath)
+        for dirName in cnf.arrDirExcept :
+            cmnDir = os.path.commonprefix([dirName,baseDir])
+            if cmnDir == dirName :
+                print "{0} in arrDirExcept".format(srcPath)
+                return bRet
+            
         srcFile = os.path.relpath(srcPath,cnf.currentDir)
         dstFile = posixpath.join(cnf.remoteDir,srcFile.replace(os.path.sep, posixpath.sep))
         #print dstFile        
@@ -112,7 +130,7 @@ def doScp(srcPath,cnf):
             ssh.close()
             bRet = True
     except :
-        print "error occur"        
+        print "error occur"
         print traceback.format_exc()
         bRet = False
     return bRet      
@@ -120,9 +138,9 @@ def doScp(srcPath,cnf):
 def doRemoteCmd(cnf,strcmd):
     bRet = False    
     try:        
-        ssh = getSSHInstance(cnf)        
+        ssh = getSSHInstance(cnf)
         print strcmd
-        stdin,stdout,stderr=ssh.exec_command(strcmd)        
+        stdin,stdout,stderr=ssh.exec_command(strcmd)
         bRet = True
     except :        
         print traceback.format_exc()
@@ -141,15 +159,15 @@ class SyncHandler(FileSystemEventHandler):
         return None
     
     def doFileDelete(self, event):
-        if not event.is_directory :             
-            srcPath = os.path.abspath(event.src_path)        
+        if not event.is_directory :
+            srcPath = os.path.abspath(event.src_path)
             srcFile = os.path.relpath(srcPath,self.conf.currentDir)
             dstFile = posixpath.join(self.conf.remoteDir,srcFile.replace(os.path.sep, posixpath.sep))
             print dstFile
             if dstFile :
                 strcmd = "rm -f {0}".format(dstFile)
                 doRemoteCmd(self.conf, strcmd)
-        return None        
+        return None
         
     def on_modified(self, event):
         print event.key    
@@ -162,7 +180,7 @@ class SyncHandler(FileSystemEventHandler):
     def on_moved(self,event):
         print event.key,"moved"
         self.doFileDelete(event)
-        self.doFileSync(event)        
+        self.doFileSync(event)
   
 if __name__ == "__main__":    
     if len(sys.argv) < 2 :
@@ -174,6 +192,7 @@ if __name__ == "__main__":
     conf.show()
     
     print conf.arrFileExcept
+    print conf.arrDirExcept
     
     # do sync in start
     for root, dirs, files in os.walk(conf.currentDir):

@@ -11,4 +11,10 @@
         <file>data/f2.txt</file>
     </fileExcept>
     
+    <dirExcept>
+        <dir>.git</dir>
+        <dir>data/dir2</dir>
+        <dir>00</dir>
+    </dirExcept>
+    
 </config>        
