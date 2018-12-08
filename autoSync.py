@@ -7,7 +7,7 @@ import posixpath, traceback
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
-class ConfigData():
+class ConfigData():        
     def __init__(self,_fileName):
         self.fileName = _fileName
         self.docTree = None
@@ -38,7 +38,7 @@ class ConfigData():
         if self.docTree :
             objTmp = self.docTree.find(path)
             if objTmp != None : 
-                retText = objTmp.text or ""
+                retText = objTmp.text or ""                
         return retText
 
     def getFileExcept(self):        
@@ -54,14 +54,14 @@ class ConfigData():
         if objTmp :
             arrDir = [os.path.join(self.currentDir,item.text) for item in objTmp]
             arrDir = [os.path.normpath(item) for item in arrDir]
-            self.arrDirExcept += arrDir
+            self.arrDirExcept += arrDir           
         return None
         
     def getSectiontInt(self,path):    
         strTmp = self.getSectiontText(path).strip()
         return (int(strTmp) if strTmp.isdigit() else 0)    
     
-    def getConfigFromFile(self):
+    def getConfigFromFile(self):        
         try:
             import xml.etree.cElementTree as ET
         except ImportError:
@@ -70,7 +70,7 @@ class ConfigData():
             print "file ", self.fileName, " not exists"
             return None        
         try:
-            self.docTree = ET.ElementTree(file=self.fileName)
+            self.docTree = ET.ElementTree(file=self.fileName)            
         except Exception,e:
             print "%s is NOT well-formed : %s "%(self.fileName,e)
             return None
@@ -78,10 +78,10 @@ class ConfigData():
         self.ssh_host = self.getSectiontText("host").strip()
         self.ssh_port = self.getSectiontInt("sshPort")
         self.ssh_user = self.getSectiontText("user").strip()
-        self.ssh_passwd = self.getSectiontText("password").strip()
+        self.ssh_passwd = self.getSectiontText("password").strip()        
         self.currentDir = self.getSectiontText("localDir").strip()
         self.currentDir = os.path.abspath(self.currentDir)    
-        self.remoteDir = self.getSectiontText("remoteDir").strip()
+        self.remoteDir = self.getSectiontText("remoteDir").strip()        
         self.getFileExcept()
         return None
 
@@ -130,7 +130,7 @@ def doScp(srcPath,cnf):
             ssh.close()
             bRet = True
     except :
-        print "error occur"
+        print "error occur"        
         print traceback.format_exc()
         bRet = False
     return bRet      
@@ -138,9 +138,9 @@ def doScp(srcPath,cnf):
 def doRemoteCmd(cnf,strcmd):
     bRet = False    
     try:        
-        ssh = getSSHInstance(cnf)
+        ssh = getSSHInstance(cnf)        
         print strcmd
-        stdin,stdout,stderr=ssh.exec_command(strcmd)
+        stdin,stdout,stderr=ssh.exec_command(strcmd)        
         bRet = True
     except :        
         print traceback.format_exc()
@@ -159,14 +159,17 @@ class SyncHandler(FileSystemEventHandler):
         return None
     
     def doFileDelete(self, event):
-        if not event.is_directory :
-            srcPath = os.path.abspath(event.src_path)
-            srcFile = os.path.relpath(srcPath,self.conf.currentDir)
-            dstFile = posixpath.join(self.conf.remoteDir,srcFile.replace(os.path.sep, posixpath.sep))
-            print dstFile
-            if dstFile :
-                strcmd = "rm -f {0}".format(dstFile)
-                doRemoteCmd(self.conf, strcmd)
+        try :
+            if not event.is_directory :
+                srcPath = os.path.abspath(event.src_path)
+                srcFile = os.path.relpath(srcPath,self.conf.currentDir)
+                dstFile = posixpath.join(self.conf.remoteDir,srcFile.replace(os.path.sep, posixpath.sep))
+                print dstFile
+                if dstFile :
+                    strcmd = "rm -f {0}".format(dstFile)
+                    doRemoteCmd(self.conf, strcmd)
+        except :
+            print "doFileDelete fail"
         return None
         
     def on_modified(self, event):
@@ -180,7 +183,7 @@ class SyncHandler(FileSystemEventHandler):
     def on_moved(self,event):
         print event.key,"moved"
         self.doFileDelete(event)
-        self.doFileSync(event)
+        self.doFileSync(event)        
   
 if __name__ == "__main__":    
     if len(sys.argv) < 2 :
